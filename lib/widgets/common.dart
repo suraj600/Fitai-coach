@@ -271,6 +271,75 @@ class SelectableChip extends StatelessWidget {
   }
 }
 
+/// Error banner for inline error display
+class ErrorBanner extends StatelessWidget {
+  final String message;
+  final VoidCallback? onRetry;
+
+  const ErrorBanner({
+    super.key,
+    required this.message,
+    this.onRetry,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.error.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(AppSizes.radiusM),
+        border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.error_outline, color: AppColors.error, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(message,
+                style: AppTextStyles.bodySmall.copyWith(color: AppColors.error)),
+          ),
+          if (onRetry != null)
+            GestureDetector(
+              onTap: onRetry,
+              child: const Padding(
+                padding: EdgeInsets.all(4),
+                child: Icon(Icons.refresh, color: AppColors.error, size: 20),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Loading shimmer placeholder
+class LoadingPlaceholder extends StatelessWidget {
+  final double height;
+  final double? width;
+
+  const LoadingPlaceholder({super.key, this.height = 100, this.width});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: height,
+      width: width ?? double.infinity,
+      decoration: BoxDecoration(
+        color: AppColors.surfaceLight,
+        borderRadius: BorderRadius.circular(AppSizes.radiusM),
+      ),
+      child: const Center(
+        child: CircularProgressIndicator(
+          color: AppColors.accent,
+          strokeWidth: 2,
+        ),
+      ),
+    );
+  }
+}
+
 /// Empty state placeholder
 class EmptyState extends StatelessWidget {
   final IconData icon;

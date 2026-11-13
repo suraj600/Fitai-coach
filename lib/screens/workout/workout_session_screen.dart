@@ -6,13 +6,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 import '../../utils/constants.dart';
+import '../../models/exercise.dart';
 import '../../models/workout.dart';
 import '../../providers/providers.dart';
 import '../../widgets/common.dart';
 
 class WorkoutSessionScreen extends ConsumerStatefulWidget {
   final String workoutDayName;
-  const WorkoutSessionScreen({super.key, required this.workoutDayName});
+  final List<PlannedExercise> plannedExercises;
+
+  const WorkoutSessionScreen({
+    super.key,
+    required this.workoutDayName,
+    this.plannedExercises = const [],
+  });
 
   @override
   ConsumerState<WorkoutSessionScreen> createState() => _WorkoutSessionScreenState();
@@ -23,37 +30,42 @@ class _WorkoutSessionScreenState extends ConsumerState<WorkoutSessionScreen> {
   int _elapsedSeconds = 0;
   bool _isPaused = false;
   bool _isResting = false;
-  int _restSeconds = 90;
   int _restRemaining = 0;
 
-  // Exercise tracking
-  final _exercises = <_SessionExercise>[
-    _SessionExercise('Barbell Bench Press', 'ch01', [
-      _SetEntry(60, 8), _SetEntry(62.5, 7), _SetEntry(62.5, 6), _SetEntry(60, 8),
-    ]),
-    _SessionExercise('Incline Dumbbell Press', 'ch04', [
-      _SetEntry(22, 10), _SetEntry(24, 8), _SetEntry(24, 0),
-    ]),
-    _SessionExercise('Overhead Press', 'sh01', [
-      _SetEntry(40, 8), _SetEntry(42.5, 0), _SetEntry(40, 0),
-    ]),
-    _SessionExercise('Cable Lateral Raise', 'sh04', [
-      _SetEntry(7.5, 0), _SetEntry(7.5, 0), _SetEntry(7.5, 0),
-    ]),
-    _SessionExercise('Tricep Pushdown', 'tr01', [
-      _SetEntry(25, 0), _SetEntry(27.5, 0), _SetEntry(25, 0),
-    ]),
-    _SessionExercise('OH Tricep Extension', 'tr02', [
-      _SetEntry(20, 0), _SetEntry(20, 0), _SetEntry(20, 0),
-    ]),
-  ];
-
+  // Built from planned exercises
+  late List<_SessionExercise> _exercises;
   int _currentExerciseIndex = 0;
   double _rpe = 7;
 
   @override
   void initState() {
     super.initState();
+
+    // Build session exercises from plan (or fallback to hardcoded)
+    if (widget.plannedExercises.isNotEmpty) {
+      _exercises = widget.plannedExercises.map((p) {
+        return _SessionExercise(
+          p.exercise.name,
+          p.exercise.id,
+          List.generate(p.sets, (i) => _SetEntry(0, 0)),
+          p.restSeconds,
+        );
+      }).toList();
+    } else {
+      // Fallback for backward compatibility
+      _exercises = [
+        _SessionExercise('Barbell Bench Press', 'ch01', [
+          _SetEntry(60, 8), _SetEntry(62.5, 7), _SetEntry(62.5, 6), _SetEntry(60, 8),
+        ], 120),
+        _SessionExercise('Incline Dumbbell Press', 'ch04', [
+          _SetEntry(22, 10), _SetEntry(24, 8), _SetEntry(24, 0),
+        ], 90),
+        _SessionExercise('Overhead Press', 'sh01', [
+          _SetEntry(40, 8), _SetEntry(42.5, 0), _SetEntry(40, 0),
+        ], 90),
+      ];
+    }
+
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!_isPaused) {
         setState(() {
@@ -79,14 +91,23 @@ class _WorkoutSessionScreenState extends ConsumerState<WorkoutSessionScreen> {
     return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
   }
 
-  void _startRestTimer() {
+  void _startRestTimer(int seconds) {
     setState(() {
       _isResting = true;
-      _restRemaining = _restSeconds;
+      _restRemaining = seconds;
     });
   }
 
   void _finishWorkout() {
+    // Check at least one set was logged
+    final hasData = _exercises.any((ex) => ex.sets.any((s) => s.reps > 0));
+    if (!hasData) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Log at least one set before finishing')),
+      );
+      return;
+    }
+
     final exerciseLogs = _exercises.map((ex) {
       return ExerciseLog(
         exerciseId: ex.id,
@@ -114,7 +135,11 @@ class _WorkoutSessionScreenState extends ConsumerState<WorkoutSessionScreen> {
       exercises: exerciseLogs,
     );
 
-    ref.read(workoutLogsProvider.notifier).addLog(log);
+    try {
+      ref.read(workoutLogsProvider.notifier).addLog(log);
+    } catch (_) {
+      // Log save failed — still show summary, data is in-memory
+    }
 
     // Show summary
     showDialog(
@@ -134,16 +159,9 @@ class _WorkoutSessionScreenState extends ConsumerState<WorkoutSessionScreen> {
               style: AppTextStyles.body,
             ),
             const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppColors.accentSubtle,
-                borderRadius: BorderRadius.circular(AppSizes.radiusM),
-              ),
-              child: Text(
-                '+5% vs last ${widget.workoutDayName}',
-                style: AppTextStyles.body.copyWith(color: AppColors.accent),
-              ),
+            Text(
+              '${exerciseLogs.where((e) => e.sets.isNotEmpty).length} of ${_exercises.length} exercises completed.',
+              style: AppTextStyles.bodySmall,
             ),
           ],
         ),
@@ -250,13 +268,18 @@ class _WorkoutSessionScreenState extends ConsumerState<WorkoutSessionScreen> {
               itemCount: _exercises.length,
               itemBuilder: (context, idx) {
                 final isActive = idx == _currentExerciseIndex;
+                final hasData = _exercises[idx].sets.any((s) => s.reps > 0);
                 return GestureDetector(
                   onTap: () => setState(() => _currentExerciseIndex = idx),
                   child: Container(
                     margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
                     padding: const EdgeInsets.symmetric(horizontal: 14),
                     decoration: BoxDecoration(
-                      color: isActive ? AppColors.accent : AppColors.card,
+                      color: isActive
+                          ? AppColors.accent
+                          : hasData
+                              ? AppColors.success.withValues(alpha: 0.2)
+                              : AppColors.card,
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Center(
@@ -266,7 +289,9 @@ class _WorkoutSessionScreenState extends ConsumerState<WorkoutSessionScreen> {
                           fontWeight: FontWeight.w700,
                           color: isActive
                               ? AppColors.background
-                              : AppColors.textSecondary,
+                              : hasData
+                                  ? AppColors.success
+                                  : AppColors.textSecondary,
                         ),
                       ),
                     ),
@@ -285,7 +310,7 @@ class _WorkoutSessionScreenState extends ConsumerState<WorkoutSessionScreen> {
                 children: [
                   Text(currentEx.name, style: AppTextStyles.h2),
                   const SizedBox(height: 4),
-                  Text('Previous best: 62.5 kg × 7',
+                  Text('Rest: ${currentEx.restSeconds}s between sets',
                       style: AppTextStyles.bodySmall),
                   const SizedBox(height: 20),
 
@@ -332,7 +357,7 @@ class _WorkoutSessionScreenState extends ConsumerState<WorkoutSessionScreen> {
                                       textAlign: TextAlign.center,
                                       style: AppTextStyles.body,
                                       decoration: InputDecoration(
-                                        hintText: '${set.weight}',
+                                        hintText: set.weight > 0 ? '${set.weight}' : '0',
                                         contentPadding: const EdgeInsets.symmetric(vertical: 8),
                                       ),
                                       onChanged: (v) {
@@ -365,7 +390,7 @@ class _WorkoutSessionScreenState extends ConsumerState<WorkoutSessionScreen> {
                                     if (set.reps == 0) {
                                       setState(() => set.reps = 8);
                                     }
-                                    _startRestTimer();
+                                    _startRestTimer(currentEx.restSeconds);
                                   },
                                   child: Container(
                                     width: 40,
@@ -395,7 +420,7 @@ class _WorkoutSessionScreenState extends ConsumerState<WorkoutSessionScreen> {
                           onTap: () {
                             setState(() {
                               currentEx.sets.add(_SetEntry(
-                                  currentEx.sets.last.weight, 0));
+                                  currentEx.sets.isNotEmpty ? currentEx.sets.last.weight : 0, 0));
                             });
                           },
                           child: Container(
@@ -460,7 +485,8 @@ class _SessionExercise {
   final String name;
   final String id;
   final List<_SetEntry> sets;
-  _SessionExercise(this.name, this.id, this.sets);
+  final int restSeconds;
+  _SessionExercise(this.name, this.id, this.sets, this.restSeconds);
 }
 
 class _SetEntry {

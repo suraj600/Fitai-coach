@@ -1,4 +1,4 @@
-/// Nutrition screen — daily calorie/macro tracking, photo meal logger, water tracker.
+/// Nutrition screen — daily calorie/macro tracking, photo meal logger, manual entry, water tracker.
 library;
 
 import 'dart:convert';
@@ -38,7 +38,6 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
       final aiService = ref.read(aiServiceProvider);
       final result = await aiService.estimateCaloriesFromPhoto(base64);
 
-      // Show result for user to confirm/edit
       if (mounted) {
         _showCalorieResult(result);
       }
@@ -56,6 +55,158 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
     }
 
     setState(() => _isAnalyzing = false);
+  }
+
+  void _showManualMealEntry() {
+    final nameController = TextEditingController();
+    final calController = TextEditingController();
+    final proteinController = TextEditingController();
+    final carbsController = TextEditingController();
+    final fatController = TextEditingController();
+    final portionController = TextEditingController(text: '1 serving');
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: EdgeInsets.only(
+            left: 20,
+            right: 20,
+            top: 20,
+            bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.edit_note, color: AppColors.accent),
+                    const SizedBox(width: 8),
+                    Text('Add Meal Manually', style: AppTextStyles.h3),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Food name',
+                    hintText: 'e.g. Chicken Biryani',
+                  ),
+                  style: AppTextStyles.body,
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: calController,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'Calories',
+                          suffixText: 'kcal',
+                        ),
+                        style: AppTextStyles.body,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextField(
+                        controller: portionController,
+                        decoration: const InputDecoration(
+                          labelText: 'Portion',
+                        ),
+                        style: AppTextStyles.body,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: proteinController,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'Protein',
+                          suffixText: 'g',
+                        ),
+                        style: AppTextStyles.body,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextField(
+                        controller: carbsController,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'Carbs',
+                          suffixText: 'g',
+                        ),
+                        style: AppTextStyles.body,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextField(
+                        controller: fatController,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'Fat',
+                          suffixText: 'g',
+                        ),
+                        style: AppTextStyles.body,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                AccentButton(
+                  label: 'Log Meal',
+                  onPressed: () {
+                    final name = nameController.text.trim();
+                    final cal = int.tryParse(calController.text) ?? 0;
+                    if (name.isEmpty || cal <= 0) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                            content: Text('Enter food name and calories')),
+                      );
+                      return;
+                    }
+
+                    final profile = ref.read(userProfileProvider);
+                    final meal = MealLog(
+                      id: const Uuid().v4(),
+                      userId: profile?.uid ?? '',
+                      foodName: name,
+                      calories: cal,
+                      proteinG: double.tryParse(proteinController.text) ?? 0,
+                      carbsG: double.tryParse(carbsController.text) ?? 0,
+                      fatG: double.tryParse(fatController.text) ?? 0,
+                      portionSize: portionController.text,
+                      confidenceScore: 1.0,
+                      mealType: _getCurrentMealType(),
+                    );
+                    ref.read(todaysMealsProvider.notifier).addMeal(meal);
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('$name logged! 🍽️')),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   void _showCalorieResult(Map<String, dynamic> result) {
@@ -159,7 +310,7 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
   }
 
   @override
-  Widget build(BuildContext context, ) {
+  Widget build(BuildContext context) {
     final profile = ref.watch(userProfileProvider);
     final meals = ref.watch(todaysMealsProvider);
     final waterCount = ref.watch(waterCountProvider);
@@ -226,42 +377,71 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
               ),
               const SizedBox(height: 20),
 
-              // Snap meal photo button
-              GestureDetector(
-                onTap: _isAnalyzing ? null : _snapMealPhoto,
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF1A2A00), Color(0xFF0A0A0A)],
-                    ),
-                    borderRadius: BorderRadius.circular(AppSizes.radiusL),
-                    border: Border.all(color: AppColors.accent.withValues(alpha: 0.3)),
-                  ),
-                  child: _isAnalyzing
-                      ? const Center(
-                          child: Column(
-                            children: [
-                              CircularProgressIndicator(color: AppColors.accent),
-                              SizedBox(height: 12),
-                              Text('Analyzing food...',
-                                  style: AppTextStyles.bodySmall),
-                            ],
+              // Add meal buttons row
+              Row(
+                children: [
+                  // Snap photo
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: _isAnalyzing ? null : _snapMealPhoto,
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF1A2A00), Color(0xFF0A0A0A)],
                           ),
-                        )
-                      : Row(
+                          borderRadius: BorderRadius.circular(AppSizes.radiusL),
+                          border: Border.all(
+                              color: AppColors.accent.withValues(alpha: 0.3)),
+                        ),
+                        child: _isAnalyzing
+                            ? const Center(
+                                child: SizedBox(
+                                  height: 24,
+                                  width: 24,
+                                  child: CircularProgressIndicator(
+                                      color: AppColors.accent, strokeWidth: 2),
+                                ))
+                            : Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.camera_alt,
+                                      color: AppColors.accent, size: 22),
+                                  const SizedBox(width: 8),
+                                  Text('Snap Photo',
+                                      style: AppTextStyles.body
+                                          .copyWith(color: AppColors.accent)),
+                                ],
+                              ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  // Manual entry
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: _showManualMealEntry,
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: AppColors.card,
+                          borderRadius: BorderRadius.circular(AppSizes.radiusL),
+                          border: Border.all(color: AppColors.divider),
+                        ),
+                        child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.camera_alt,
-                                color: AppColors.accent, size: 28),
-                            const SizedBox(width: 12),
-                            Text('Snap Meal Photo',
-                                style: AppTextStyles.h3
-                                    .copyWith(color: AppColors.accent)),
+                            Icon(Icons.edit_note,
+                                color: AppColors.textSecondary, size: 22),
+                            const SizedBox(width: 8),
+                            Text('Add Manual',
+                                style: AppTextStyles.body),
                           ],
                         ),
-                ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 20),
 
@@ -291,16 +471,14 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
                           icon: const Icon(Icons.remove_circle_outline,
                               color: AppColors.textTertiary),
                           onPressed: () {
-                            if (waterCount > 0) {
-                              ref.read(waterCountProvider.notifier).state--;
-                            }
+                            ref.read(waterCountProvider.notifier).decrement();
                           },
                         ),
                         IconButton(
                           icon: const Icon(Icons.add_circle,
                               color: AppColors.info),
                           onPressed: () {
-                            ref.read(waterCountProvider.notifier).state++;
+                            ref.read(waterCountProvider.notifier).increment();
                           },
                         ),
                       ],
@@ -316,7 +494,7 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
                 const EmptyState(
                   icon: Icons.restaurant,
                   title: 'No meals logged yet',
-                  subtitle: 'Snap a photo of your food to start tracking',
+                  subtitle: 'Snap a photo or add manually to start tracking',
                 )
               else
                 ...meals.map((meal) => Container(

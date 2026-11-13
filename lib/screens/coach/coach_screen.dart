@@ -40,19 +40,31 @@ class _CoachScreenState extends ConsumerState<CoachScreen> {
     setState(() => _isTyping = true);
     _scrollToBottom();
 
-    // Get AI response
-    final aiService = ref.read(aiServiceProvider);
-    final response = await aiService.chatWithCoach(text, profile);
+    try {
+      // Get AI response
+      final aiService = ref.read(aiServiceProvider);
+      final response = await aiService.chatWithCoach(text, profile);
 
-    // Add bot message with suggestions
-    final botMsg = ChatMessage(
-      id: const Uuid().v4(),
-      userId: profile.uid,
-      content: response,
-      isUser: false,
-      suggestions: _getSuggestions(text),
-    );
-    ref.read(chatMessagesProvider.notifier).addMessage(botMsg);
+      // Add bot message with suggestions
+      final botMsg = ChatMessage(
+        id: const Uuid().v4(),
+        userId: profile.uid,
+        content: response,
+        isUser: false,
+        suggestions: _getSuggestions(text),
+      );
+      ref.read(chatMessagesProvider.notifier).addMessage(botMsg);
+    } catch (e) {
+      // Show error as bot message
+      final errorMsg = ChatMessage(
+        id: const Uuid().v4(),
+        userId: profile.uid,
+        content: '⚠️ Something went wrong. Please try again.',
+        isUser: false,
+        suggestions: ['Try again'],
+      );
+      ref.read(chatMessagesProvider.notifier).addMessage(errorMsg);
+    }
 
     setState(() => _isTyping = false);
     _scrollToBottom();

@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../utils/constants.dart';
 import '../../models/user_profile.dart';
 import '../../providers/providers.dart';
+import '../../services/auth_service.dart';
 import '../../widgets/common.dart';
 import '../app_shell.dart';
 
@@ -70,6 +71,24 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   }
 
   void _completeOnboarding() {
+    // Validate required fields
+    final name = _nameController.text.trim();
+    if (name.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter your name')),
+      );
+      return;
+    }
+    final weight = double.tryParse(_weightController.text);
+    final height = double.tryParse(_heightController.text);
+    final age = int.tryParse(_ageController.text);
+    if (weight == null || weight <= 0 || height == null || height <= 0 || age == null || age <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please fill in valid age, height, and weight')),
+      );
+      return;
+    }
+
     final measurements = <String, double>{};
     if (_chestController.text.isNotEmpty) {
       measurements['chest'] = double.tryParse(_chestController.text) ?? 0;
@@ -83,15 +102,19 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
     final calorieTarget = UserProfile.calculateCalories(
       gender: _gender,
-      weightKg: double.tryParse(_weightController.text) ?? 70,
-      heightCm: double.tryParse(_heightController.text) ?? 170,
-      age: int.tryParse(_ageController.text) ?? 25,
+      weightKg: weight,
+      heightCm: height,
+      age: age,
       goal: _primaryGoal,
       daysPerWeek: _daysPerWeek,
     );
 
+    // Use Firebase UID if logged in, otherwise generate local ID
+    final auth = ref.read(authServiceProvider);
+    final uid = auth.uid ?? 'local_${DateTime.now().millisecondsSinceEpoch}';
+
     final profile = UserProfile(
-      uid: 'user_${DateTime.now().millisecondsSinceEpoch}',
+      uid: uid,
       name: _nameController.text.isEmpty ? 'User' : _nameController.text,
       age: int.tryParse(_ageController.text) ?? 25,
       gender: _gender,
