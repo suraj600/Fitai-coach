@@ -62,9 +62,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       }
     } catch (e) {
       setState(() {
-        _error = _isLogin
-            ? 'Invalid email or password.'
-            : 'Registration failed. Try a different email.';
+        _error = e.toString();
       });
     } finally {
       if (mounted) setState(() => _isLoading = false);
