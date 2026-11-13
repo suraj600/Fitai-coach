@@ -1,7 +1,11 @@
 /// Firestore service — CRUD operations for user profiles, workouts, nutrition, chat.
+///
+/// Security: All write methods validate that userId matches the authenticated user.
+/// Demo/local users (uid starting with 'local_') are blocked from Firestore writes.
 library;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../models/user_profile.dart';
 import '../models/workout.dart';
 import '../models/nutrition.dart';
@@ -10,9 +14,22 @@ import '../models/chat_message.dart';
 class FirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
+  /// Verify the requested uid matches the currently authenticated user.
+  /// Prevents client-side UID tampering. Blocks demo/local users.
+  void _assertAuthorized(String uid) {
+    if (uid.startsWith('local_')) {
+      throw Exception('Demo users cannot access Firestore');
+    }
+    final currentUid = FirebaseAuth.instance.currentUser?.uid;
+    if (currentUid == null || currentUid != uid) {
+      throw Exception('Unauthorized: uid mismatch');
+    }
+  }
+
   // ─── User Profile ─────────────────────────────────────────────────────────
 
   Future<void> saveUserProfile(UserProfile profile) async {
+    _assertAuthorized(profile.uid);
     await _db.collection('users').doc(profile.uid).set(
           profile.toFirestore(),
           SetOptions(merge: true),
@@ -35,6 +52,7 @@ class FirestoreService {
   // ─── Workout Plans ────────────────────────────────────────────────────────
 
   Future<void> saveWorkoutPlan(WorkoutPlan plan) async {
+    _assertAuthorized(plan.userId);
     await _db
         .collection('users')
         .doc(plan.userId)
@@ -59,6 +77,7 @@ class FirestoreService {
   // ─── Workout Logs ─────────────────────────────────────────────────────────
 
   Future<void> saveWorkoutLog(WorkoutLog log) async {
+    _assertAuthorized(log.userId);
     await _db
         .collection('users')
         .doc(log.userId)
@@ -113,6 +132,7 @@ class FirestoreService {
   // ─── Nutrition Logs ───────────────────────────────────────────────────────
 
   Future<void> saveMealLog(MealLog meal) async {
+    _assertAuthorized(meal.userId);
     await _db
         .collection('users')
         .doc(meal.userId)
@@ -157,6 +177,7 @@ class FirestoreService {
   // ─── Water Tracking ───────────────────────────────────────────────────────
 
   Future<void> updateWaterCount(String uid, DateTime date, int glasses) async {
+    _assertAuthorized(uid);
     final key = '${date.year}-${date.month}-${date.day}';
     await _db
         .collection('users')
@@ -179,13 +200,41 @@ class FirestoreService {
 
   // ─── Chat Messages ────────────────────────────────────────────────────────
 
+  static const int _maxChatMessages = 200;
+
   Future<void> saveChatMessage(ChatMessage message) async {
+    _assertAuthorized(message.userId);
     await _db
         .collection('users')
         .doc(message.userId)
         .collection('chatMessages')
         .doc(message.id)
         .set(message.toFirestore());
+
+    // Prune old messages if over limit (fire-and-forget)
+    _pruneOldChatMessages(message.userId);
+  }
+
+  Future<void> _pruneOldChatMessages(String uid) async {
+    try {
+      final snap = await _db
+          .collection('users')
+          .doc(uid)
+          .collection('chatMessages')
+          .orderBy('timestamp', descending: false)
+          .get();
+
+      if (snap.docs.length > _maxChatMessages) {
+        final toDelete = snap.docs.length - _maxChatMessages;
+        final batch = _db.batch();
+        for (int i = 0; i < toDelete; i++) {
+          batch.delete(snap.docs[i].reference);
+        }
+        await batch.commit();
+      }
+    } catch (_) {
+      // Non-critical — silently fail
+    }
   }
 
   Stream<List<ChatMessage>> streamChatMessages(String uid) {
@@ -194,7 +243,7 @@ class FirestoreService {
         .doc(uid)
         .collection('chatMessages')
         .orderBy('timestamp', descending: false)
-        .limit(100)
+        .limit(_maxChatMessages)
         .snapshots()
         .map((snap) =>
             snap.docs.map((d) => ChatMessage.fromFirestore(d.data())).toList());
@@ -204,6 +253,7 @@ class FirestoreService {
 
   Future<void> saveBodyMeasurement(
       String uid, Map<String, double> measurements) async {
+    _assertAuthorized(uid);
     await _db
         .collection('users')
         .doc(uid)

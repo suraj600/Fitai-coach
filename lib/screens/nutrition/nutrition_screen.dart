@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
 import '../../utils/constants.dart';
+import '../../utils/security.dart';
 import '../../models/nutrition.dart';
 import '../../providers/providers.dart';
 import '../../widgets/common.dart';
@@ -171,12 +172,15 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
                 AccentButton(
                   label: 'Log Meal',
                   onPressed: () {
-                    final name = nameController.text.trim();
-                    final cal = int.tryParse(calController.text) ?? 0;
-                    if (name.isEmpty || cal <= 0) {
+                    final name = InputSanitizer.sanitize(
+                        nameController.text,
+                        maxLen: InputSanitizer.maxFoodNameLength);
+                    final cal = InputSanitizer.sanitizePositiveInt(
+                        calController.text, max: 10000);
+                    if (name.isEmpty || cal == null) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                            content: Text('Enter food name and calories')),
+                            content: Text('Enter valid food name and calories')),
                       );
                       return;
                     }
@@ -187,10 +191,15 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
                       userId: profile?.uid ?? '',
                       foodName: name,
                       calories: cal,
-                      proteinG: double.tryParse(proteinController.text) ?? 0,
-                      carbsG: double.tryParse(carbsController.text) ?? 0,
-                      fatG: double.tryParse(fatController.text) ?? 0,
-                      portionSize: portionController.text,
+                      proteinG: InputSanitizer.sanitizePositiveNumber(
+                              proteinController.text, max: 500) ?? 0,
+                      carbsG: InputSanitizer.sanitizePositiveNumber(
+                              carbsController.text, max: 1000) ?? 0,
+                      fatG: InputSanitizer.sanitizePositiveNumber(
+                              fatController.text, max: 500) ?? 0,
+                      portionSize: InputSanitizer.sanitize(
+                          portionController.text,
+                          maxLen: InputSanitizer.maxPortionLength),
                       confidenceScore: 1.0,
                       mealType: _getCurrentMealType(),
                     );

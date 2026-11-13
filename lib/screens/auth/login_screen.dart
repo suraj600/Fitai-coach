@@ -4,6 +4,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../utils/constants.dart';
+import '../../utils/security.dart';
 import '../../providers/providers.dart';
 import '../../widgets/common.dart';
 
@@ -153,7 +154,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       style: AppTextStyles.body,
                       validator: (v) {
                         if (v == null || v.trim().isEmpty) return 'Enter email';
-                        if (!v.contains('@')) return 'Invalid email';
+                        if (!InputSanitizer.isValidEmail(v.trim())) {
+                          return 'Enter a valid email address';
+                        }
                         return null;
                       },
                     ),
@@ -169,6 +172,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       validator: (v) {
                         if (v == null || v.isEmpty) return 'Enter password';
                         if (v.length < 6) return 'Min 6 characters';
+                        if (v.length > 128) return 'Max 128 characters';
                         return null;
                       },
                     ),

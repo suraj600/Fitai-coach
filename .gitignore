@@ -30,10 +30,16 @@ ios/.symlinks/
 ios/Flutter/Flutter.framework
 ios/Flutter/Flutter.podspec
 
-# Secrets
+# Secrets — NEVER commit API keys or Firebase config
 *.env
+.env.*
 google-services.json
 GoogleService-Info.plist
+firebase_options.dart
+**/firebase_app_id_file.json
+
+# Debug info (contains de-obfuscation mappings)
+build/debug-info/
 
 # Generated
 *.g.dart

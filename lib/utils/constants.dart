@@ -121,8 +121,16 @@ class AppSizes {
 class ApiConfig {
   ApiConfig._();
 
-  /// Replace with your Gemini API key
-  static const String geminiApiKey = 'YOUR_GEMINI_API_KEY_HERE';
+  /// API key loaded from --dart-define at build time.
+  /// Build with: flutter run --dart-define=GEMINI_API_KEY=your_key_here
+  /// NEVER hardcode the key in source code.
+  static const String geminiApiKey = String.fromEnvironment(
+    'GEMINI_API_KEY',
+    defaultValue: '',
+  );
+
+  static bool get hasApiKey => geminiApiKey.isNotEmpty;
+
   static const String geminiBaseUrl =
       'https://generativelanguage.googleapis.com/v1beta';
   static const String geminiModel = 'gemini-2.0-flash';

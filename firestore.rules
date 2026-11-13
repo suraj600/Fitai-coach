@@ -1,0 +1,116 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ─── Deny all by default ───────────────────────────────────────────
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // ─── User profiles ─────────────────────────────────────────────────
+    // Users can only read/write their own profile document.
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidProfile();
+      allow update: if isOwner(userId) && isValidProfile();
+      allow delete: if false; // profiles are never deleted from client
+
+      // ─── Workout Plans (subcollection) ─────────────────────────────
+      match /workoutPlans/{planId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidPlan();
+        allow update: if isOwner(userId);
+        allow delete: if false;
+      }
+
+      // ─── Workout Logs (subcollection) ──────────────────────────────
+      match /workoutLogs/{logId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidLog();
+        allow update: if false; // logs are immutable
+        allow delete: if false;
+      }
+
+      // ─── Meal Logs (subcollection) ─────────────────────────────────
+      match /mealLogs/{mealId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidMeal();
+        allow update: if false; // meals are immutable once logged
+        allow delete: if false;
+      }
+
+      // ─── Water Logs (subcollection) ────────────────────────────────
+      match /waterLogs/{dateKey} {
+        allow read: if isOwner(userId);
+        allow write: if isOwner(userId)
+                     && request.resource.data.glasses is int
+                     && request.resource.data.glasses >= 0
+                     && request.resource.data.glasses <= 50;
+      }
+
+      // ─── Chat Messages (subcollection) ─────────────────────────────
+      match /chatMessages/{msgId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId)
+                      && request.resource.data.content is string
+                      && request.resource.data.content.size() <= 2000;
+        allow update, delete: if false; // chat history is append-only
+      }
+
+      // ─── Body Measurements (subcollection) ─────────────────────────
+      match /bodyMeasurements/{measureId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId);
+        allow update, delete: if false;
+      }
+    }
+
+    // ─── Helper functions ──────────────────────────────────────────────
+
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    function isValidProfile() {
+      let data = request.resource.data;
+      return data.name is string
+          && data.name.size() > 0
+          && data.name.size() <= 100
+          && data.weightKg is number
+          && data.weightKg > 0
+          && data.weightKg < 500
+          && data.heightCm is number
+          && data.heightCm > 0
+          && data.heightCm < 300
+          && data.age is int
+          && data.age > 0
+          && data.age < 120;
+    }
+
+    function isValidPlan() {
+      let data = request.resource.data;
+      return data.userId is string
+          && data.userId == request.auth.uid;
+    }
+
+    function isValidLog() {
+      let data = request.resource.data;
+      return data.userId is string
+          && data.userId == request.auth.uid
+          && data.durationMinutes is int
+          && data.durationMinutes >= 0
+          && data.durationMinutes <= 600;
+    }
+
+    function isValidMeal() {
+      let data = request.resource.data;
+      return data.userId is string
+          && data.userId == request.auth.uid
+          && data.calories is int
+          && data.calories >= 0
+          && data.calories <= 10000
+          && data.foodName is string
+          && data.foodName.size() <= 200;
+    }
+  }
+}
