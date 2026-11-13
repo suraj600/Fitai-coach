@@ -33,7 +33,7 @@ ios/Flutter/Flutter.podspec
 # Secrets — NEVER commit API keys or Firebase config
 *.env
 .env.*
-google-services.json
+# google-services.json  (committed for CI builds)
 GoogleService-Info.plist
 firebase_options.dart
 **/firebase_app_id_file.json

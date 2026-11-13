@@ -27,8 +27,12 @@ jobs:
 
       - name: Generate platform files
         run: |
+          # Save google-services.json before flutter create overwrites android/
+          cp android/app/google-services.json /tmp/google-services.json 2>/dev/null || true
           flutter create --project-name fitai_coach --org com.fitai --platforms android .
           mkdir -p assets/images assets/fonts
+          # Restore google-services.json
+          cp /tmp/google-services.json android/app/google-services.json 2>/dev/null || true
 
       - name: Get dependencies
         run: flutter pub get

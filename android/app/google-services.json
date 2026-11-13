@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "275160956600",
+    "project_id": "fitai-coach-2f859",
+    "storage_bucket": "fitai-coach-2f859.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:275160956600:android:09da7b8696c4711ef23e4d",
+        "android_client_info": {
+          "package_name": "com.fitai.fitai_coach"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDuZh3EjSfSBK9sUgwbViQ6bWA0Nz5apiQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
