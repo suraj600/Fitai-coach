@@ -25,6 +25,11 @@ jobs:
         with:
           channel: stable
 
+      - name: Generate platform files
+        run: |
+          flutter create --project-name fitai_coach --org com.fitai --platforms android .
+          mkdir -p assets/images assets/fonts
+
       - name: Get dependencies
         run: flutter pub get
 
