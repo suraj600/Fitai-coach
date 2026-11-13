@@ -378,7 +378,7 @@ class _BodyTab extends ConsumerWidget {
               children: [
                 Expanded(
                   child: StatCard(
-                    title: 'Weight',
+                    label: 'Weight',
                     value: '${profile.weightKg} kg',
                     icon: Icons.monitor_weight,
                   ),
@@ -386,7 +386,7 @@ class _BodyTab extends ConsumerWidget {
                 const SizedBox(width: 12),
                 Expanded(
                   child: StatCard(
-                    title: 'Height',
+                    label: 'Height',
                     value: '${profile.heightCm} cm',
                     icon: Icons.height,
                   ),
@@ -398,7 +398,7 @@ class _BodyTab extends ConsumerWidget {
             children: [
               Expanded(
                 child: StatCard(
-                  title: 'BMI',
+                  label: 'BMI',
                   value: profile != null
                       ? (profile.weightKg /
                               ((profile.heightCm / 100) *
@@ -411,7 +411,7 @@ class _BodyTab extends ConsumerWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: StatCard(
-                  title: 'Workouts',
+                  label: 'Workouts',
                   value: '${logs.length}',
                   icon: Icons.fitness_center,
                 ),
@@ -539,7 +539,7 @@ class _ConsistencyTab extends ConsumerWidget {
             children: [
               Expanded(
                 child: StatCard(
-                  title: 'Current Streak',
+                  label: 'Current Streak',
                   value: '${ref.watch(workoutLogsProvider.notifier).currentStreak} days',
                   icon: Icons.local_fire_department,
                 ),
@@ -547,7 +547,7 @@ class _ConsistencyTab extends ConsumerWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: StatCard(
-                  title: 'This Month',
+                  label: 'This Month',
                   value: '${ref.watch(workoutLogsProvider.notifier).thisMonthCount}',
                   icon: Icons.calendar_month,
                 ),

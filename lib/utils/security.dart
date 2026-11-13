@@ -29,7 +29,7 @@ class InputSanitizer {
   /// Sanitize a name field — letters, spaces, hyphens, apostrophes only.
   static String sanitizeName(String input) {
     final cleaned = input
-        .replaceAll(RegExp(r'[^\p{L}\p{M}\s\-\']', unicode: true), '')
+        .replaceAll(RegExp(r"[^\p{L}\p{M}\s\-']", unicode: true), '')
         .trim();
     if (cleaned.length > maxNameLength) {
       return cleaned.substring(0, maxNameLength);

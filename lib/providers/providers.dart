@@ -7,6 +7,7 @@ import '../services/firestore_service.dart';
 import '../services/ai_service.dart';
 import '../models/user_profile.dart';
 import '../models/workout.dart';
+import '../models/exercise.dart';
 import '../models/nutrition.dart';
 import '../models/chat_message.dart';
 import '../data/demo_data.dart';
